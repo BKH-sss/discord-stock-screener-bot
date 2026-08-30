@@ -1,8 +1,9 @@
-import os
+﻿import os
 import time
 import requests
 import pandas as pd
 import yfinance as yf
+import FinanceDataReader as fdr
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -10,18 +11,14 @@ load_dotenv()
 
 DISCORD_WEBHOOK_URL = os.getenv("US_DISCORD_WEBHOOK_URL") or os.getenv("DISCORD_WEBHOOK_URL", "")
 
-def get_sp500_tickers():
-    """S&P 500 종목 리스트 가져오기"""
-    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+def get_sp500_tickers(limit=250):
+    """S&P 500 종목 리스트 가져오기 (FinanceDataReader 활용)"""
     try:
-        html = requests.get(url, headers=headers).text
-        tables = pd.read_html(html)
-        df = tables[0]
-        tickers = df['Symbol'].str.replace('.', '-', regex=False).tolist()
-        return tickers
+        df_sp = fdr.StockListing('S&P500')
+        tickers = df_sp['Symbol'].str.replace('.', '-', regex=False).tolist()
+        return tickers[:limit]
     except Exception as e:
-        print(f"[!] S&P 500 티커 수집 실패, 기본 대표 티커 사용: {e}")
+        print(f"[!] S&P 500 티커 수집 오류, 기본 대표 티커 사용: {e}")
         return [
             "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "BRK-B", "LLY", "AVGO",
             "JPM", "UNH", "V", "XOM", "MA", "COST", "HD", "PG", "NFLX", "JNJ",
@@ -126,11 +123,9 @@ def analyze_stock(ticker):
     except Exception:
         return None
 
-def fetch_and_screen(limit=None):
+def fetch_and_screen(limit=250):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 미국 주식 재무 데이터 스크리닝 시작...")
-    tickers = get_sp500_tickers()
-    if limit:
-        tickers = tickers[:limit]
+    tickers = get_sp500_tickers(limit=limit)
     print(f"총 {len(tickers)}개 종목 분석 중...")
     
     results = []
@@ -138,8 +133,8 @@ def fetch_and_screen(limit=None):
         res = analyze_stock(t)
         if res:
             results.append(res)
-        if (i + 1) % 20 == 0 or (i + 1) == len(tickers):
-            print(f"진행 상황: {i+1}/{len(tickers)} 완료 (조건 통과: {len(results)}개)")
+        if (i + 1) % 25 == 0 or (i + 1) == len(tickers):
+            print(f"진행 상황: {i+1}/{len(tickers)} 완료 (부채비율 120% 이하 통과: {len(results)}개)")
         time.sleep(0.05)
         
     df = pd.DataFrame(results)
@@ -147,7 +142,7 @@ def fetch_and_screen(limit=None):
         print("[!] 필터링 조건을 만족하는 종목이 없습니다.")
         return None
         
-    print(f"부채비율 120% 이하 통과 종목 수: {len(df)}개")
+    print(f"최종 통과 종목 수: {len(df)}개")
     return df
 
 def send_to_discord(df):
@@ -205,7 +200,7 @@ def send_to_discord(df):
         print(f"[!] 디스코드 전송 실패 (상태코드: {resp.status_code}): {resp.text}")
 
 def main():
-    df = fetch_and_screen()
+    df = fetch_and_screen(limit=250)
     if df is not None:
         send_to_discord(df)
 
