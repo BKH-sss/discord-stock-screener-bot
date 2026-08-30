@@ -1,0 +1,30 @@
+﻿name: Sunday Maple Discord Notification
+
+on:
+  schedule:
+    # 썬데이 메이플 공지가 올라오는 목/금/토/일요일 매 시간 또는 매일 주기적 확인 (예: 2시간마다 확인)
+    - cron: '0 */2 * * *'
+  workflow_dispatch: # 수동 테스트 실행 버튼
+
+jobs:
+  check_maple:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Sunday Maple Bot
+        env:
+          MAPLE_DISCORD_WEBHOOK_URL: ${{ secrets.MAPLE_DISCORD_WEBHOOK_URL }}
+        run: |
+          python sunday_maple_bot.py

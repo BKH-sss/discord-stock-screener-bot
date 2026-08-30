@@ -15,7 +15,7 @@ import os
 # 설정 (Configuration)
 # ==========================================
 # 디스코드 채널 설정 -> 연동 -> 웹훅 만들기 -> 웹훅 URL 복사 후 아래에 붙여넣으세요.
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1543098119242121356/GBqBrwqAVQnbrEFpJDm_D7LmnvleIHIMq9ogPgAEkzOmOSm8uzhFO-QV2Mn1s7zozbHS"
+DISCORD_WEBHOOK_URL = os.getenv("MAPLE_DISCORD_WEBHOOK_URL") or os.getenv("DISCORD_WEBHOOK_URL") or "https://discord.com/api/webhooks/1543098119242121356/GBqBrwqAVQnbrEFpJDm_D7LmnvleIHIMq9ogPgAEkzOmOSm8uzhFO-QV2Mn1s7zozbHS"
 
 # 메이플스토리 이벤트 목록 URL
 MAPLE_EVENT_URL = "https://maplestory.nexon.com/News/Event"
