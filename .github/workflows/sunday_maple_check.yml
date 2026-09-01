@@ -1,9 +1,12 @@
-﻿name: Sunday Maple Discord Notification
+name: Sunday Maple Discord Notification
 
 on:
   schedule:
-    # 썬데이 메이플 공지가 올라오는 목/금/토/일요일 매 시간 또는 매일 주기적 확인 (예: 2시간마다 확인)
-    - cron: '0 */2 * * *'
+    # 넥슨 메이플스토리 공식 이벤트 공지가 등록되는 오전 10시 정각 타임에 실행
+    # (한국 시간 10:01 KST = UTC 01:01 / 10시 공지 등록 직후 딜레이 없이 즉시 감지)
+    - cron: '1 1 * * *'
+    # 공지가 늦게 올라오는 경우를 대비한 10:15 KST (UTC 01:15) 백업 체크
+    - cron: '15 1 * * *'
   workflow_dispatch: # 수동 테스트 실행 버튼
 
 jobs:
