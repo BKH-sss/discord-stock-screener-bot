@@ -2,10 +2,18 @@ name: Sunday Maple Discord Notification
 
 on:
   schedule:
-    # 넥슨 메이플스토리 공식 이벤트 공지 등록 후 오전 10시 05분(KST)에 실행
-    # (한국 시간 10:05 KST = UTC 01:05)
-    - cron: '5 1 * * *'
-  workflow_dispatch: # 수동 테스트 실행 버튼
+    # 썬데이 메이플 공지가 올라오는 매주 금요일(KST 09:00 ~ 20:00)에 2시간마다 확인
+    # KST 금요일 09:00~20:00 -> UTC 금요일 00:00~11:00 (5 = 금요일)
+    - cron: '0 0-11/2 * * 5'
+  workflow_dispatch: # 수동 테스트 실행 버튼 (GitHub 웹에서 즉시 실행)
+    inputs:
+      force_send:
+        description: '요일 제한 무시하고 즉시 강제 전송 여부 (true/false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
 
 jobs:
   check_maple:
@@ -27,5 +35,13 @@ jobs:
       - name: Run Sunday Maple Bot
         env:
           MAPLE_DISCORD_WEBHOOK_URL: ${{ secrets.MAPLE_DISCORD_WEBHOOK_URL }}
+          FORCE_SEND: ${{ github.event.inputs.force_send }}
         run: |
           python sunday_maple_bot.py
+
+      - name: Commit and push if last_sunday_maple.txt changed
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_sunday_maple.txt
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update last_sunday_maple.txt [skip ci]" && git push)

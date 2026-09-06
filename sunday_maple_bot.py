@@ -1,15 +1,19 @@
 """
 메이플스토리 썬데이 메이플 디스코드 웹훅 알리미
-- 메이플스토리 이벤트 페이지를 크롤링하여 최신 썬데이 메이플 공지와 이미지를 디스코드 채널로 전송합니다.
+- 매주 금요일(KST)에 메이플스토리 공식 이벤트 페이지를 확인하여 최신 썬데이 메이플 공지와 이미지를 디스코드 채널로 전송합니다.
 """
 
+import sys
 import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import json
 import os
+
+# 한국 표준시 (KST = UTC+9)
+KST = timezone(timedelta(hours=9))
 
 # ==========================================
 # 설정 (Configuration)
@@ -69,7 +73,8 @@ def get_latest_sunday_maple():
                 }
 
     except Exception as e:
-        print(f"[{datetime.now()}] 크롤링 중 오류 발생: {e}")
+        now_str = datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[{now_str} KST] 크롤링 중 오류 발생: {e}")
     return None
 
 
@@ -89,7 +94,8 @@ def get_detail_image(detail_url):
             if imgs:
                 return imgs[0].get("src")
     except Exception as e:
-        print(f"[{datetime.now()}] 상세 페이지 이미지 파싱 오류: {e}")
+        now_str = datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[{now_str} KST] 상세 페이지 이미지 파싱 오류: {e}")
     return None
 
 
@@ -113,7 +119,7 @@ def send_discord_webhook(event_data):
         "footer": {
             "text": "메이플스토리 공식 홈페이지 소식"
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
     payload = {
@@ -129,21 +135,38 @@ def send_discord_webhook(event_data):
             data=json.dumps(payload),
             timeout=10
         )
+        now_str = datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')
         if res.status_code in [200, 204]:
-            print(f"[{datetime.now()}] 디스코드 전송 완료: {event_data['title']}")
+            print(f"[{now_str} KST] 디스코드 전송 완료: {event_data['title']}")
             return True
         else:
-            print(f"[{datetime.now()}] 디스코드 전송 실패 (상태 코드: {res.status_code}): {res.text}")
+            print(f"[{now_str} KST] 디스코드 전송 실패 (상태 코드: {res.status_code}): {res.text}")
     except Exception as e:
-        print(f"[{datetime.now()}] 디스코드 요청 중 에러: {e}")
+        now_str = datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[{now_str} KST] 디스코드 요청 중 에러: {e}")
     return False
 
 
-def check_and_notify():
-    """새로운 썬데이 메이플이 올라왔는지 확인하고 전송합니다."""
+def check_and_notify(force: bool = False):
+    """
+    금요일 여부를 확인하고, 새로운 썬데이 메이플 공지가 올라왔는지 확인하여 전송합니다.
+    - 매주 '금요일(KST)'에만 발송됩니다.
+    - force=True 인 경우 요일 제한을 건너뜁니다 (수동 테스트용).
+    """
+    now_kst = datetime.now(KST)
+    weekday_idx = now_kst.weekday()  # 0: 월, 1: 화, 2: 수, 3: 목, 4: 금, 5: 토, 6: 일
+    weekday_kr = ["월", "화", "수", "목", "금", "토", "일"][weekday_idx]
+    now_str = now_kst.strftime('%Y-%m-%d %H:%M:%S')
+
+    # 금요일 검사 (금요일이 아닌 경우 전송 중단)
+    if not force and weekday_idx != 4:
+        print(f"[{now_str} KST] 오늘은 {weekday_kr}요일입니다. 썬데이 메이플 알림은 매주 '금요일'에만 발송됩니다.")
+        return
+
+    print(f"[{now_str} KST] 썬데이 메이플 공지 확인 시작 (금요일 알림 모드)...")
     event = get_latest_sunday_maple()
     if not event:
-        print(f"[{datetime.now()}] 현재 썬데이 메이플 이벤트를 찾을 수 없습니다.")
+        print(f"[{now_str} KST] 현재 썬데이 메이플 이벤트를 찾을 수 없습니다.")
         return
 
     # 마지막으로 전송한 링크 읽기
@@ -153,8 +176,8 @@ def check_and_notify():
             last_sent_link = f.read().strip()
 
     # 이미 전송된 이벤트인 경우 건너뜀
-    if event["link"] == last_sent_link:
-        print(f"[{datetime.now()}] 이미 전송된 최신 썬데이 메이플입니다. ({event['title']})")
+    if event["link"] == last_sent_link and not force:
+        print(f"[{now_str} KST] 이미 전송된 최신 썬데이 메이플입니다. ({event['title']})")
         return
 
     # 웹훅 전송
@@ -166,5 +189,6 @@ def check_and_notify():
 
 
 if __name__ == "__main__":
+    force_run = "--force" in sys.argv or os.getenv("FORCE_SEND", "").lower() in ["1", "true", "yes"]
     print("=== 메이플스토리 썬데이 메이플 알리미 실행 ===")
-    check_and_notify()
+    check_and_notify(force=force_run)
